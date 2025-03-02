@@ -12,56 +12,45 @@ import pandas as pd
 import re
 import os
 import requests
+import time
 
 from telethon.tl.types import Channel, Chat, Dialog
-
-# Use your own values from my.telegram.org
-api_id = ''
-api_hash = ''
-channel_id = -
-GROUP_LINK = 'https://t.me/H1B_H4_Visa_Dropbox_slots'
-
-# Twilio credentials
-# Get these from your Twilio dashboard
-TWILIO_ACCOUNT_SID = ''
-TWILIO_AUTH_TOKEN = ''
-TWILIO_FROM_NUMBER = '+'
-TO_PHONE_NUMBER = '+'
-
-bot_name =  ""
-bot_token = ""
-self_ch_id= ""
-bot_url = "https://api.telegram.org/bot" + bot_token + "/sendMessage"
+# move below sensitive info to other file.
+from config import API_ID, API_HASH, CHANNEL_ID, GROUP_LINK, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER, TO_PHONE_NUMBER, BOT_NAME, BOT_TOKEN, SELF_CH_ID, BOT_URL
 
 
-client = TelegramClient('INSERT THE FILE NAME', api_id, api_hash)
+client = TelegramClient('INSERT THE FILE NAME', API_ID, API_HASH)
 groups = []
 # links pass the stages: to be processed -> done
 to_be_processed = set()
 done = set()
 edges = {}
 package_dir = os.path.dirname(os.path.abspath(__file__))
-def send_telegram_message(message):
+async def send_telegram_message(message):
+    if message == '':
+        message = "Empty Message"
+    if not message:
+        message = "Empty None Message"
     # client.send_message(self_ch_id, message)
-	send_txt = (
-		bot_url
+    send_txt = (
+		BOT_URL
 		+ "?chat_id="
-		+ self_ch_id
+		+ SELF_CH_ID
 		+ "&parse_mode=MarkDownV2&text="
 		+ message
-	)    
-	try:
-		res = requests.get(send_txt)
-		if res.status_code != 200:
-			print(
-				"Failed to send message to channel id: " + channel_id
+	)
+    try:
+        res = requests.get(send_txt)
+        if res.status_code != 200:
+            print(
+				"Failed to send message to channel id: " + str(CHANNEL_ID)
 			)
-	except Exception as e:
-		print(
-			"Failed to send message to channel id: " + channel_id + " " + str(e)
+    except Exception as e:
+        print(
+			"Failed to send message to channel id: " + str(CHANNEL_ID) + " " + str(e)
 		)
     
-    
+
 async def main():
 	global groups, edges, to_be_processed, done, package_dir
 
@@ -77,22 +66,37 @@ async def main():
 	print(entity.stringify()) 
  
 	msg_ids = set()
+	await send_telegram_message(f"Starting the bot")
 	while True:
 
 		# Read the message from entity
-		messages = await client.get_messages(entity, limit=1)
+		messages = await client.get_messages(entity, limit=5)
 		print('-'*50)
 		print(f"Messages: {messages}")
 		print('-'*50)
+		# for i in messages:
+		# 	if str(i.sender_id) == "162726413":
+		# 		print("Skipping message from bot")
+		# 		print('='*50)
+		# 		continue
+		# 	print("Message: ", i.stringify())
+		# 	print(f"Message from {i.sender_id}: {i.message}")
+		# 	print('-'*50)
+		# print(f"Messages: {messages}")
 		for message in messages:
 			if message.id not in msg_ids:
+				if str(message.sender_id) == "162726413":
+					continue
 				msg_ids.add(message.id)
 				print(f"Message from {message.sender_id}: {message.message}")
-				# send_telegram_message(f"Message from {message.sender_id}: {message.message}")
+				# await send_telegram_message(f"Message from {message.sender_id}: {message.message}")
 				if "NA" not in message.message.upper():
 					print("'NA' not found in message! Triggering alert...")
 					print(f"Alert! Message without 'NA' detected: {message.message}")
-					send_telegram_message(f"Alert! Message without 'NA' detected: {message.message}. Call Praxal or Pankti")
+					await send_telegram_message(f"Check Slots")
+					print("*"*50)
+					print("Message sent to telegram group")
+					print("*"*50)
 					
 					# Make Twilio call
 					try:
@@ -105,10 +109,14 @@ async def main():
 						print(f"Twilio call initiated: {call.sid}")
 					except Exception as e:
 						print(f"Failed to make Twilio call: {str(e)}")
+
+					time.sleep(120)
 				else:
 					print("'NA' found in message - no alert needed")
 			else:
 				print(f"Skipping duplicate message: {message.id}")
+
+			break
 		await asyncio.sleep(10)
 
 
